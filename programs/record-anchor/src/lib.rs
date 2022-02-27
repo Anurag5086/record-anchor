@@ -16,11 +16,10 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 #[program]
 pub mod record_anchor {
-    use anchor_lang::solana_program::entrypoint::ProgramResult;
 
     use super::*;
     /// Create a `RecordInstruction::Initialize` instruction
-    pub fn initialize(ctx: Context<Initialize>) -> ProgramResult {
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         msg!("RecordInstruction::Initialize");
 
         let data_info = &mut ctx.accounts.record_account;
@@ -29,7 +28,7 @@ pub mod record_anchor {
         let mut account_data = RecordData::try_from_slice(&data_info.data.bytes)?;
         if account_data.is_initialized() {
             msg!("Record account already initialized");
-            return Err(ProgramError::AccountAlreadyInitialized);
+            return Err(ProgramError::AccountAlreadyInitialized.into());
         }
 
         account_data.authority = authority_info;
@@ -37,15 +36,39 @@ pub mod record_anchor {
 
         Ok(())
     }
-    
+
+    pub fn set_authority(ctx: Context<SetAuthority>) -> Result<()> {
+        msg!("RecordInstruction::SetAuthority");
+        let data_info = &mut ctx.accounts.record_account;
+        let new_authority_info = ctx.accounts.new_authority.key();
+        let mut account_data = RecordData::try_from_slice(&data_info.data.bytes)?;
+
+        if !account_data.is_initialized() {
+            msg!("Record account not initialized");
+            return Err(ProgramError::UninitializedAccount.into());
+        }
+        account_data.authority = new_authority_info;
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, space = 8 + 32 + 8 + 8 + 8)]
+    #[account(init, payer = authority, space = 8 + 32 + 8 + 8 + 8 + 8)]
     pub record_account: Account<'info, RecordData>,
     #[account(mut)]
     pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>
+}
+
+#[derive(Accounts)]
+pub struct SetAuthority<'info> {
+    #[account(mut, has_one = authority)]
+    pub record_account: Account<'info, RecordData>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    /// CHECK: This is not dangerous because we don't read or write from this account
+    pub new_authority: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>
 }
 
