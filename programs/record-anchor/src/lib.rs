@@ -32,7 +32,7 @@ pub mod record_anchor {
         }
 
         account_data.authority = authority_info;
-        account_data.version = RecordData::CURRENT_VERSION;
+        account_data.version = 1;
 
         Ok(())
     }
@@ -87,30 +87,23 @@ pub struct RecordData {
 #[account]
 pub struct Data {
     /// The data contained by the account, could be anything or serializable
-    pub bytes: [u8; Self::DATA_SIZE],
+    pub bytes: [u8; 8],
 }
 
-impl Data {
-    /// very small data for easy testing
-    pub const DATA_SIZE: usize = 8;
-}
+// impl Data {
+//     /// very small data for easy testing
+//     // pub const DATA_SIZE: usize = 8;
+// }
 
 impl RecordData {
     /// Version to fill in on new created accounts
-    pub const CURRENT_VERSION: u8 = 1;
+    // pub const CURRENT_VERSION: u8 = 1;
 
     /// Start of writable account data, after version and authority
-    pub const WRITABLE_START_INDEX: usize = 33;
+    // pub const WRITABLE_START_INDEX: usize = 33;
 
     fn is_initialized(&self) -> bool {
-        self.version == Self::CURRENT_VERSION
+        self.version == 1
     }
 }
-
-// impl IsInitialized for RecordData {
-//     /// Is initialized
-//     fn is_initialized(&self) -> bool {
-//         self.version == Self::CURRENT_VERSION
-//     }
-// }
 
