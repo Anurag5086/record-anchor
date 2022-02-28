@@ -16,7 +16,6 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 #[program]
 pub mod record_anchor {
-
     use super::*;
     /// Create a `RecordInstruction::Initialize` instruction
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
@@ -50,6 +49,26 @@ pub mod record_anchor {
         account_data.authority = new_authority_info;
         Ok(())
     }
+
+    pub fn close_account(ctx: Context<CloseAccount>) -> Result<()> {
+        msg!("RecordInstruction::CloseAccount");
+            let data_info = &mut ctx.accounts.record_account;
+            let destination_info = &mut ctx.accounts.reciever;
+            let account_data = RecordData::try_from_slice(&data_info.data.bytes)?;
+            if !account_data.is_initialized() {
+                msg!("Record not initialized");
+                return Err(ProgramError::UninitializedAccount.into());
+            }
+
+            let destination_starting_lamports = destination_info.lamports();
+            let data_lamports = data_info.to_account_info().lamports();
+            
+            **data_info.to_account_info().lamports.borrow_mut() = 0;
+            **destination_info.to_account_info().lamports.borrow_mut() = destination_starting_lamports
+                .checked_add(data_lamports)
+                .ok_or(ProgramError::Custom(0))?;
+            Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -69,6 +88,17 @@ pub struct SetAuthority<'info> {
     pub authority: Signer<'info>,
     /// CHECK: This is not dangerous because we don't read or write from this account
     pub new_authority: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>
+}
+
+#[derive(Accounts)]
+pub struct CloseAccount<'info> {
+    #[account(mut, has_one = authority)]
+    pub record_account: Account<'info, RecordData>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    /// CHECK: This is not dangerous because we don't read or write from this account
+    pub reciever: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>
 }
 
@@ -106,4 +136,5 @@ impl RecordData {
         self.version == 1
     }
 }
+
 
