@@ -67,7 +67,26 @@ pub mod record_anchor {
             **destination_info.to_account_info().lamports.borrow_mut() = destination_starting_lamports
                 .checked_add(data_lamports)
                 .ok_or(ProgramError::Custom(0))?;
+            // Should also clear the AccountData
             Ok(())
+    }
+
+    pub fn write(ctx: Context<Write>, offset: u64, data: Vec<u8>) -> Result<()> {
+        msg!("RecordInstruction::Write");
+        let data_info = &mut ctx.accounts.record_account;
+        let account_data = RecordData::try_from_slice(&data_info.data.bytes)?;
+        if !account_data.is_initialized() {
+            msg!("Record account not initialized");
+            return Err(ProgramError::UninitializedAccount.into());
+        }
+        let start = 33 + offset as usize;
+        let end = start + data.len();
+        if end > data_info.data.bytes.len() {
+            return Err(ProgramError::AccountDataTooSmall.into());
+        } else {
+            data_info.data.bytes[start..end].copy_from_slice(&data);
+        }
+        Ok(())
     }
 }
 
@@ -99,6 +118,15 @@ pub struct CloseAccount<'info> {
     pub authority: Signer<'info>,
     /// CHECK: This is not dangerous because we don't read or write from this account
     pub reciever: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>
+}
+
+#[derive(Accounts)]
+pub struct Write<'info> {
+    #[account(mut, has_one = authority)]
+    pub record_account: Account<'info, RecordData>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
     pub system_program: Program<'info, System>
 }
 
