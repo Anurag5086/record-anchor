@@ -40,23 +40,23 @@ pub mod record_anchor {
 
     pub fn close_account(ctx: Context<CloseAccount>) -> Result<()> {
         msg!("RecordInstruction::CloseAccount");
-            let data_info = &mut ctx.accounts.record_account;
-            let destination_info = &mut ctx.accounts.reciever;
-            let account_data = &mut RecordData::try_from_slice(&data_info.data.bytes)?;
-            if !account_data.is_initialized() {
-                msg!("Record not initialized");
-                return Err(ProgramError::UninitializedAccount.into());
-            }
+        let data_info = &mut ctx.accounts.record_account;
+        let destination_info = &mut ctx.accounts.reciever;
+        let account_data = &mut RecordData::try_from_slice(&data_info.data.bytes)?;
+        if !account_data.is_initialized() {
+            msg!("Record not initialized");
+            return Err(ProgramError::UninitializedAccount.into());
+        }
 
-            let destination_starting_lamports = destination_info.lamports();
-            let data_lamports = data_info.to_account_info().lamports();
-            
-            **data_info.to_account_info().lamports.borrow_mut() = 0;
-            **destination_info.to_account_info().lamports.borrow_mut() = destination_starting_lamports
-                .checked_add(data_lamports)
-                .ok_or(ProgramError::Custom(0))?;
-            account_data.data = Data::default();
-            Ok(())
+        let destination_starting_lamports = destination_info.lamports();
+        let data_lamports = data_info.to_account_info().lamports();
+        
+        **data_info.to_account_info().lamports.borrow_mut() = 0;
+        **destination_info.to_account_info().lamports.borrow_mut() = destination_starting_lamports
+            .checked_add(data_lamports)
+            .ok_or(ProgramError::Custom(0))?;
+        account_data.data = Data::default();
+        Ok(())
     }
 
     pub fn write(ctx: Context<Write>, offset: u64, data: Vec<u8>) -> Result<()> {
@@ -118,6 +118,10 @@ pub struct Write<'info> {
     pub system_program: Program<'info, System>
 }
 
+const DATA_SIZE: usize = 8;
+const CURRENT_VERSION: u8 = 1;
+const WRITABLE_START_INDEX: usize = 33;
+
 #[account]
 pub struct RecordData {
     /// Struct version, allows for upgrades to the program
@@ -129,10 +133,6 @@ pub struct RecordData {
     /// The data contained by the account, could be anything serializable
     pub data: Data,
 }
-
-const DATA_SIZE: usize = 8;
-const CURRENT_VERSION: u8 = 1;
-const WRITABLE_START_INDEX: usize = 33;
 
 #[account]
 #[derive(Default)]
