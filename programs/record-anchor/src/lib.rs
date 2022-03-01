@@ -2,22 +2,10 @@ use anchor_lang::prelude::*;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
-// fn check_authority(authority_info: &AccountInfo, expected_authority: &Pubkey) -> ProgramResult {
-//     if expected_authority != authority_info.key {
-//         msg!("Incorrect record authority provided");
-//         return Err();
-//     }
-//     if !authority_info.is_signer {
-//         msg!("Record authority signature missing");
-//         return Err();
-//     }
-//     Ok(())
-// }
-
 #[program]
 pub mod record_anchor {
     use super::*;
-    /// Create a `RecordInstruction::Initialize` instruction
+
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         msg!("RecordInstruction::Initialize");
 
@@ -31,7 +19,7 @@ pub mod record_anchor {
         }
 
         account_data.authority = authority_info;
-        account_data.version = 1;
+        account_data.version = CURRENT_VERSION;
 
         Ok(())
     }
@@ -54,7 +42,7 @@ pub mod record_anchor {
         msg!("RecordInstruction::CloseAccount");
             let data_info = &mut ctx.accounts.record_account;
             let destination_info = &mut ctx.accounts.reciever;
-            let account_data = RecordData::try_from_slice(&data_info.data.bytes)?;
+            let account_data = &mut RecordData::try_from_slice(&data_info.data.bytes)?;
             if !account_data.is_initialized() {
                 msg!("Record not initialized");
                 return Err(ProgramError::UninitializedAccount.into());
@@ -67,7 +55,7 @@ pub mod record_anchor {
             **destination_info.to_account_info().lamports.borrow_mut() = destination_starting_lamports
                 .checked_add(data_lamports)
                 .ok_or(ProgramError::Custom(0))?;
-            // Should also clear the AccountData
+            account_data.data = Data::default();
             Ok(())
     }
 
@@ -79,7 +67,7 @@ pub mod record_anchor {
             msg!("Record account not initialized");
             return Err(ProgramError::UninitializedAccount.into());
         }
-        let start = 33 + offset as usize;
+        let start = WRITABLE_START_INDEX + offset as usize;
         let end = start + data.len();
         if end > data_info.data.bytes.len() {
             return Err(ProgramError::AccountDataTooSmall.into());
@@ -142,24 +130,18 @@ pub struct RecordData {
     pub data: Data,
 }
 
+const DATA_SIZE: usize = 8;
+const CURRENT_VERSION: u8 = 1;
+const WRITABLE_START_INDEX: usize = 33;
+
 #[account]
+#[derive(Default)]
 pub struct Data {
     /// The data contained by the account, could be anything or serializable
-    pub bytes: [u8; 8],
+    pub bytes: [u8; DATA_SIZE],
 }
 
-// impl Data {
-//     /// very small data for easy testing
-//     // pub const DATA_SIZE: usize = 8;
-// }
-
 impl RecordData {
-    /// Version to fill in on new created accounts
-    // pub const CURRENT_VERSION: u8 = 1;
-
-    /// Start of writable account data, after version and authority
-    // pub const WRITABLE_START_INDEX: usize = 33;
-
     fn is_initialized(&self) -> bool {
         self.version == 1
     }
