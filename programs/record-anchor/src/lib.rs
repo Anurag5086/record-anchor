@@ -80,7 +80,7 @@ pub mod record_anchor {
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, space = 8 + 32 + 8 + 8 + 8 + 8)]
+    #[account(init, payer = authority, space = 8 + 32 + 1 + 8)]
     pub record_account: Account<'info, RecordData>,
     #[account(mut)]
     pub authority: Signer<'info>,
