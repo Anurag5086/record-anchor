@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("FGQLqP4smSphjS1WRamE3zEezL8tCFZrsu4Wg5z2Kq4r");
 
 #[program]
 pub mod record_anchor {
@@ -12,7 +12,7 @@ pub mod record_anchor {
         let data_info = &mut ctx.accounts.record_account;
         let authority_info = *ctx.accounts.authority.key;
 
-        let mut account_data = RecordData::try_from_slice(&data_info.data.bytes)?;
+        let mut account_data = RecordData::try_from_slice(&data_info.data)?;
         if account_data.is_initialized() {
             msg!("Record account already initialized");
             return Err(ProgramError::AccountAlreadyInitialized.into());
@@ -28,7 +28,7 @@ pub mod record_anchor {
         msg!("RecordInstruction::SetAuthority");
         let data_info = &mut ctx.accounts.record_account;
         let new_authority_info = ctx.accounts.new_authority.key();
-        let mut account_data = RecordData::try_from_slice(&data_info.data.bytes)?;
+        let mut account_data = RecordData::try_from_slice(&data_info.data)?;
 
         if !account_data.is_initialized() {
             msg!("Record account not initialized");
@@ -42,7 +42,7 @@ pub mod record_anchor {
         msg!("RecordInstruction::CloseAccount");
         let data_info = &mut ctx.accounts.record_account;
         let destination_info = &mut ctx.accounts.reciever;
-        let account_data = &mut RecordData::try_from_slice(&data_info.data.bytes)?;
+        let account_data = &mut RecordData::try_from_slice(&data_info.data)?;
         if !account_data.is_initialized() {
             msg!("Record not initialized");
             return Err(ProgramError::UninitializedAccount.into());
@@ -55,24 +55,24 @@ pub mod record_anchor {
         **destination_info.to_account_info().lamports.borrow_mut() = destination_starting_lamports
             .checked_add(data_lamports)
             .ok_or(ProgramError::Custom(0))?;
-        account_data.data = Data::default();
+        account_data.data = RecordData::default().data;
         Ok(())
     }
 
     pub fn write(ctx: Context<Write>, offset: u64, data: Vec<u8>) -> Result<()> {
         msg!("RecordInstruction::Write");
         let data_info = &mut ctx.accounts.record_account;
-        let account_data = RecordData::try_from_slice(&data_info.data.bytes)?;
+        let account_data = RecordData::try_from_slice(&data_info.data)?;
         if !account_data.is_initialized() {
             msg!("Record account not initialized");
             return Err(ProgramError::UninitializedAccount.into());
         }
         let start = WRITABLE_START_INDEX + offset as usize;
         let end = start + data.len();
-        if end > data_info.data.bytes.len() {
+        if end > data_info.data.len() {
             return Err(ProgramError::AccountDataTooSmall.into());
         } else {
-            data_info.data.bytes[start..end].copy_from_slice(&data);
+            data_info.data[start..end].copy_from_slice(&data);
         }
         Ok(())
     }
@@ -80,7 +80,7 @@ pub mod record_anchor {
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, space = 8 + 32 + 1 + 8)]
+    #[account(init, payer = authority, space = 8 + 32 + 1 + 8 + 32)]
     pub record_account: Account<'info, RecordData>,
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -123,6 +123,7 @@ const CURRENT_VERSION: u8 = 1;
 const WRITABLE_START_INDEX: usize = 33;
 
 #[account]
+#[derive(Default)]
 pub struct RecordData {
     /// Struct version, allows for upgrades to the program
     pub version: u8,
@@ -131,14 +132,7 @@ pub struct RecordData {
     pub authority: Pubkey,
 
     /// The data contained by the account, could be anything serializable
-    pub data: Data,
-}
-
-#[account]
-#[derive(Default)]
-pub struct Data {
-    /// The data contained by the account, could be anything or serializable
-    pub bytes: [u8; DATA_SIZE],
+    pub data: [u8; DATA_SIZE],
 }
 
 impl RecordData {
