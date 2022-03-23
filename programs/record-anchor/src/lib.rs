@@ -12,14 +12,8 @@ pub mod record_anchor {
         let data_info = &mut ctx.accounts.record_account;
         let authority_info = *ctx.accounts.authority.key;
 
-        let mut account_data = RecordData::try_from_slice(&data_info.data)?;
-        if account_data.is_initialized() {
-            msg!("Record account already initialized");
-            return Err(ProgramError::AccountAlreadyInitialized.into());
-        }
-
-        account_data.authority = authority_info;
-        account_data.version = CURRENT_VERSION;
+        data_info.authority = authority_info;
+        data_info.version = CURRENT_VERSION;
 
         Ok(())
     }
@@ -62,11 +56,6 @@ pub mod record_anchor {
     pub fn write(ctx: Context<Write>, offset: u64, data: Vec<u8>) -> Result<()> {
         msg!("RecordInstruction::Write");
         let data_info = &mut ctx.accounts.record_account;
-        let account_data = RecordData::try_from_slice(&data_info.data)?;
-        if !account_data.is_initialized() {
-            msg!("Record account not initialized");
-            return Err(ProgramError::UninitializedAccount.into());
-        }
         let start = WRITABLE_START_INDEX + offset as usize;
         let end = start + data.len();
         if end > data_info.data.len() {
