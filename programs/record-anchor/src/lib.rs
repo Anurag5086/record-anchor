@@ -22,13 +22,8 @@ pub mod record_anchor {
         msg!("RecordInstruction::SetAuthority");
         let data_info = &mut ctx.accounts.record_account;
         let new_authority_info = ctx.accounts.new_authority.key();
-        let mut account_data = RecordData::try_from_slice(&data_info.data)?;
 
-        if !account_data.is_initialized() {
-            msg!("Record account not initialized");
-            return Err(ProgramError::UninitializedAccount.into());
-        }
-        account_data.authority = new_authority_info;
+        data_info.authority = new_authority_info;
         Ok(())
     }
 
@@ -36,11 +31,6 @@ pub mod record_anchor {
         msg!("RecordInstruction::CloseAccount");
         let data_info = &mut ctx.accounts.record_account;
         let destination_info = &mut ctx.accounts.reciever;
-        let account_data = &mut RecordData::try_from_slice(&data_info.data)?;
-        if !account_data.is_initialized() {
-            msg!("Record not initialized");
-            return Err(ProgramError::UninitializedAccount.into());
-        }
 
         let destination_starting_lamports = destination_info.lamports();
         let data_lamports = data_info.to_account_info().lamports();
@@ -49,7 +39,7 @@ pub mod record_anchor {
         **destination_info.to_account_info().lamports.borrow_mut() = destination_starting_lamports
             .checked_add(data_lamports)
             .ok_or(ProgramError::Custom(0))?;
-        account_data.data = RecordData::default().data;
+        data_info.data = RecordData::default().data;
         Ok(())
     }
 
@@ -69,7 +59,7 @@ pub mod record_anchor {
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(init, payer = authority, space = 8 + 32 + 1 + 8 + 32)]
+    #[account(init, payer = authority, space = 8 + 32 + 1 + 8 + 32 + 1)]
     pub record_account: Account<'info, RecordData>,
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -93,6 +83,7 @@ pub struct CloseAccount<'info> {
     pub record_account: Account<'info, RecordData>,
     #[account(mut)]
     pub authority: Signer<'info>,
+    #[account(mut)]
     /// CHECK: This is not dangerous because we don't read or write from this account
     pub reciever: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>
@@ -109,7 +100,7 @@ pub struct Write<'info> {
 
 const DATA_SIZE: usize = 8;
 const CURRENT_VERSION: u8 = 1;
-const WRITABLE_START_INDEX: usize = 33;
+const WRITABLE_START_INDEX: usize = 0;
 
 #[account]
 #[derive(Default)]
@@ -122,12 +113,6 @@ pub struct RecordData {
 
     /// The data contained by the account, could be anything serializable
     pub data: [u8; DATA_SIZE],
-}
-
-impl RecordData {
-    fn is_initialized(&self) -> bool {
-        self.version == 1
-    }
 }
 
 
